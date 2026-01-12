@@ -12,39 +12,30 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # --- Page Configuration ---
-st.set_page_config(page_title="Breast Cancer Evaluator", layout="wide")
+st.set_page_config(page_title="Breast Cancer Model Evaluator", layout="wide")
 
 st.title("📊 Breast Cancer Classification Evaluator")
+st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 
-# --- 1. Smart Path Resolution [Seasoned Developer Fix] ---
-def find_model_dir():
-    """Recursively searches for the 'model' directory starting from root."""
-    for root, dirs, files in os.walk(os.getcwd()):
-        if 'model' in dirs:
-            return os.path.join(root, 'model')
-    return os.path.join(os.getcwd(), 'model') # Fallback
+# --- 1. Path Resolution Logic ---
+ROOT = os.getcwd()
+SUBFOLDER = "breast_cancer_classification_models"
+MODEL_DIR = os.path.join(ROOT, SUBFOLDER, "model") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "model")
 
-MODEL_DIR = find_model_dir()
-
-# --- 2. Safe Asset Loading ---
+# --- 2. Optimized Asset Loading ---
 @st.cache_resource
-def get_verified_assets(model_filename):
-    """Verifies files exist and are valid model objects."""
-    m_path = os.path.join(MODEL_DIR, model_filename)
-    s_path = os.path.join(MODEL_DIR, "scaler.pkl")
-    
-    try:
-        if os.path.exists(m_path) and os.path.exists(s_path):
-            model_obj = joblib.load(m_path)
-            scaler_obj = joblib.load(s_path)
-            # Ensure it's a model with a predict method, not a string
-            if hasattr(model_obj, "predict"):
-                return model_obj, scaler_obj
-        return None, None
-    except Exception:
-        return None, None
+def get_scaler():
+    """Loads the universal scaler using absolute path resolution."""
+    path = os.path.join(MODEL_DIR, "scaler.pkl")
+    return joblib.load(path) if os.path.exists(path) else None
 
-# --- 3. Sidebar ---
+@st.cache_resource
+def get_model(filename):
+    """Loads the specific model from the correct directory."""
+    path = os.path.join(MODEL_DIR, filename)
+    return joblib.load(path) if os.path.exists(path) else None
+
+# --- 3. Sidebar Configuration ---
 st.sidebar.header("1. Upload Data")
 uploaded_file = st.sidebar.file_uploader("Upload test CSV", type=["csv"])
 
@@ -56,34 +47,45 @@ if uploaded_file is not None:
     target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=len(df.columns)-1)
     
     st.sidebar.header("2. Model Selection")
+    
     model_map = {
         "Logistic Regression": "breast_cancer_model_lr.pkl",
         "Decision Tree": "breast_cancer_model_dt.pkl",
         "XG Boost": "breast_cancer_model_xg.pkl"
     }
-    model_option = st.sidebar.selectbox("Choose Model", options=list(model_map.keys()))
     
+    model_option = st.sidebar.selectbox("Choose Trained Model", options=list(model_map.keys()))
+    selected_filename = model_map[model_option]
+
     if st.button("Run Evaluation"):
-        model, scaler = get_verified_assets(model_map[model_option])
+        model = get_model(selected_filename)
+        scaler = get_scaler()
 
         if model is not None and scaler is not None:
             try:
-                # --- 4. Data Preparation ---
-                # Drop ID and Diagnosis to isolate 30 features
-                to_drop = [c for c in df.columns if c.lower() in ['id', 'diagnosis']]
-                X_raw = df.drop(columns=to_drop)
+                # --- 4. Data Preparation & Prediction ---
+                # Fix: Exclude both the target column AND any 'id' column
+                cols_to_drop = [col for col in df.columns if col.lower() in [target_col.lower(), 'id']]
+                X_raw = df.drop(columns=cols_to_drop)
                 
-                # Check for feature count mismatch
+                # Validation: Ensure exactly 30 features remain for the model
                 if X_raw.shape[1] != 30:
-                    st.error(f"Error: Expected 30 features, but found {X_raw.shape[1]}.")
-                    st.stop()
+                    st.warning(f"Feature count mismatch: Expected 30, but found {X_raw.shape[1]}. Check if 'id' was correctly excluded.")
 
-                y_true = LabelEncoder().fit_transform(df[target_col].astype(str))
+                le = LabelEncoder()
+                y_true = le.fit_transform(df[target_col].astype(str))
+                
+                # Scale and Predict
                 X_scaled = scaler.transform(X_raw) 
                 y_pred = model.predict(X_scaled)
-                y_proba = model.predict_proba(X_scaled)[:, 1] if hasattr(model, "predict_proba") else y_pred
+                
+                # Probability handling for metrics
+                try:
+                    y_proba = model.predict_proba(X_scaled)[:, 1]
+                except AttributeError:
+                    y_proba = y_pred 
 
-                # --- 5. Display ---
+                # --- 5. Metrics Display ---
                 st.subheader(f"Results for {model_option}")
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
                 m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
@@ -93,6 +95,7 @@ if uploaded_file is not None:
                 m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
                 m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
 
+                # --- 6. Visualizations ---
                 st.write("---")
                 col_a, col_b = st.columns(2)
                 with col_a:
@@ -100,16 +103,17 @@ if uploaded_file is not None:
                     cm = confusion_matrix(y_true, y_pred)
                     fig, ax = plt.subplots()
                     sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
+                    plt.xlabel('Predicted')
+                    plt.ylabel('Actual')
                     st.pyplot(fig)
                 with col_b:
                     st.write("#### Classification Report")
-                    report = classification_report(y_true, y_pred, output_dict=True)
+                    report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
                     st.dataframe(pd.DataFrame(report).transpose())
 
             except Exception as e:
                 st.error(f"Computation Error: {e}")
         else:
-            st.error(f"Asset Error: Could not find files in {MODEL_DIR}")
-            st.write("Available folders here:", os.listdir(os.getcwd()))
+            st.error(f"File Error: Could not find '{selected_filename}' or 'scaler.pkl' in {MODEL_DIR}")
 else:
     st.info("Please upload a CSV file to begin.")
