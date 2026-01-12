@@ -60,48 +60,59 @@ if uploaded_file is not None:
     if st.button("Run Evaluation"):
         model = get_model(selected_filename)
         scaler = get_scaler()
+        
+        # Debug info
+        st.write(f"Model type: {type(model)}")
+        st.write(f"Scaler type: {type(scaler)}")
 
         if model is not None and scaler is not None:
-            try:
-                # --- 4. Data Preparation & Prediction ---
-                X_raw = df.drop(columns=[target_col, 'id'])
-                le = LabelEncoder()
-                y_true = le.fit_transform(df[target_col].astype(str))
-                
-                X_scaled = scaler.transform(X_raw) 
-                y_pred = model.predict(X_scaled)
-                
+            if isinstance(model, str):
+                st.error(f"Error: Model loaded as string instead of model object. The file '{selected_filename}' may be corrupted.")
+            else:
                 try:
-                    y_proba = model.predict_proba(X_scaled)[:, 1]
-                except AttributeError:
-                    y_proba = y_pred 
+                    # --- 4. Data Preparation & Prediction ---
+                    cols_to_drop = [target_col]
+                    if 'id' in df.columns:
+                        cols_to_drop.append('id')
+                    X_raw = df.drop(columns=cols_to_drop)
+                    
+                    le = LabelEncoder()
+                    y_true = le.fit_transform(df[target_col].astype(str))
+                    
+                    X_scaled = scaler.transform(X_raw) 
+                    y_pred = model.predict(X_scaled)
+                    
+                    try:
+                        y_proba = model.predict_proba(X_scaled)[:, 1]
+                    except AttributeError:
+                        y_proba = y_pred 
 
-                # --- 5. Metrics Display ---
-                st.subheader(f"Results for {model_option}")
-                m1, m2, m3, m4, m5, m6 = st.columns(6)
-                m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
-                m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
-                m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
-                m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
-                m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
-                m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+                    # --- 5. Metrics Display ---
+                    st.subheader(f"Results for {model_option}")
+                    m1, m2, m3, m4, m5, m6 = st.columns(6)
+                    m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
+                    m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
+                    m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
+                    m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
+                    m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
+                    m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
 
-                # --- 6. Visualizations ---
-                st.write("---")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.write("#### Confusion Matrix")
-                    cm = confusion_matrix(y_true, y_pred)
-                    fig, ax = plt.subplots()
-                    sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
-                    st.pyplot(fig)
-                with col_b:
-                    st.write("#### Classification Report")
-                    report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
-                    st.dataframe(pd.DataFrame(report).transpose())
+                    # --- 6. Visualizations ---
+                    st.write("---")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.write("#### Confusion Matrix")
+                        cm = confusion_matrix(y_true, y_pred)
+                        fig, ax = plt.subplots()
+                        sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
+                        st.pyplot(fig)
+                    with col_b:
+                        st.write("#### Classification Report")
+                        report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
+                        st.dataframe(pd.DataFrame(report).transpose())
 
-            except Exception as e:
-                st.error(f"Computation Error: {e}")
+                except Exception as e:
+                    st.error(f"Computation Error: {e}")
         else:
             st.error(f"File Error: Could not find '{selected_filename}' in {MODEL_DIR}")
 else:
