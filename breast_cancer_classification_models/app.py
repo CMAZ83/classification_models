@@ -16,15 +16,20 @@ st.set_page_config(page_title="Breast Cancer Evaluator", layout="wide")
 
 st.title("📊 Breast Cancer Classification Evaluator")
 
-# --- 1. Path Resolution ---
-ROOT = os.getcwd()
-SUBFOLDER = "breast_cancer_classification_models"
-MODEL_DIR = os.path.join(ROOT, SUBFOLDER, "model") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "model")
+# --- 1. Smart Path Resolution [Seasoned Developer Fix] ---
+def find_model_dir():
+    """Recursively searches for the 'model' directory starting from root."""
+    for root, dirs, files in os.walk(os.getcwd()):
+        if 'model' in dirs:
+            return os.path.join(root, 'model')
+    return os.path.join(os.getcwd(), 'model') # Fallback
+
+MODEL_DIR = find_model_dir()
 
 # --- 2. Safe Asset Loading ---
 @st.cache_resource
 def get_verified_assets(model_filename):
-    """Verifies that the file exists and is a valid model object."""
+    """Verifies files exist and are valid model objects."""
     m_path = os.path.join(MODEL_DIR, model_filename)
     s_path = os.path.join(MODEL_DIR, "scaler.pkl")
     
@@ -32,7 +37,7 @@ def get_verified_assets(model_filename):
         if os.path.exists(m_path) and os.path.exists(s_path):
             model_obj = joblib.load(m_path)
             scaler_obj = joblib.load(s_path)
-            # Ensure we didn't just load a path string
+            # Ensure it's a model with a predict method, not a string
             if hasattr(model_obj, "predict"):
                 return model_obj, scaler_obj
         return None, None
@@ -48,7 +53,6 @@ if uploaded_file is not None:
     st.write("### Preview of Test Data")
     st.dataframe(df.head())
 
-    # Detect diagnosis column
     target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=len(df.columns)-1)
     
     st.sidebar.header("2. Model Selection")
@@ -65,13 +69,13 @@ if uploaded_file is not None:
         if model is not None and scaler is not None:
             try:
                 # --- 4. Data Preparation ---
-                # Remove ID and Diagnosis to isolate 30 features
+                # Drop ID and Diagnosis to isolate 30 features
                 to_drop = [c for c in df.columns if c.lower() in ['id', 'diagnosis']]
                 X_raw = df.drop(columns=to_drop)
                 
                 # Check for feature count mismatch
                 if X_raw.shape[1] != 30:
-                    st.error(f"Error: Expected 30 features, but found {X_raw.shape[1]}. Check for 'ID' columns.")
+                    st.error(f"Error: Expected 30 features, but found {X_raw.shape[1]}.")
                     st.stop()
 
                 y_true = LabelEncoder().fit_transform(df[target_col].astype(str))
@@ -105,6 +109,7 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"Computation Error: {e}")
         else:
-            st.error(f"Asset Error: Files missing or invalid in {MODEL_DIR}")
+            st.error(f"Asset Error: Could not find files in {MODEL_DIR}")
+            st.write("Available folders here:", os.listdir(os.getcwd()))
 else:
     st.info("Please upload a CSV file to begin.")
