@@ -18,15 +18,13 @@ st.title("📊 Breast Cancer Classification Evaluator")
 st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 
 # --- 1. Load Models & Assets ---
-# Using cache_resource to prevent reloading the model on every rerun
 @st.cache_resource
-def load_ml_assets(model_name):
-    # Map selection to your filename
-    model_path = f"{model_name}.pkl"
+def load_ml_assets(model_filename):
+    """Loads the model based on the mapped filename and the universal scaler."""
     scaler_path = "scaler.pkl"
     
-    if os.path.exists(model_path) and os.path.exists(scaler_path):
-        model = joblib.load(model_path)
+    if os.path.exists(model_filename) and os.path.exists(scaler_path):
+        model = joblib.load(model_filename)
         scaler = joblib.load(scaler_path)
         return model, scaler
     return None, None
@@ -40,43 +38,53 @@ if uploaded_file is not None:
     st.write("### Preview of Test Data")
     st.dataframe(df.head())
 
-    # Selection for ground truth and features
+    # Selection for ground truth
     target_col = st.sidebar.selectbox("Select Target (Diagnosis) Column", df.columns, index=len(df.columns)-1)
     
     st.sidebar.header("2. Model Selection")
+    
+    # Mapping friendly names to your specific .pkl filenames
     model_map = {
-    "Logistic Regression": "breast_cancer_model_lr.pkl",
-    "Decision Tree": "breast_cancer_model_dt.pkl",
-    "XG Boost": "breast_cancer_model_xg.pkl"
-}
+        "Logistic Regression": "breast_cancer_model_lr.pkl",
+        "Decision Tree": "breast_cancer_model_dt.pkl",
+        "XG Boost": "breast_cancer_model_xg.pkl"
+    }
+    
     model_option = st.sidebar.selectbox(
         "Choose Trained Model",
-        ["Logistic Regression", "Decision Tree", "XG Boost"]
+        options=list(model_map.keys())
     )
 
-    # Load the actual model and scaler
-    model, scaler = load_ml_assets(model_option)
+    # Get the actual filename from the map
+    selected_filename = model_map[model_option]
+
+    # Load the actual model using the filename
+    model, scaler = load_ml_assets(selected_filename)
 
     if st.button("Run Evaluation"):
-        if model is not None:
+        if model is not None and scaler is not None:
             # --- Data Preparation ---
             X_raw = df.drop(columns=[target_col])
             
-            # 1. Encode target labels (e.g., 'M'/'B' to 0/1)
+            # 1. Encode target labels
             le = LabelEncoder()
             y_true = le.fit_transform(df[target_col].astype(str))
             
-            # 2. Scale features (CRITICAL for kNN/Logistic Regression)
-            X_scaled = scaler.transform(X_raw)
+            # 2. Scale features (Uses your scaler.pkl)
+            try:
+                X_scaled = scaler.transform(X_raw)
+            except Exception as e:
+                st.error(f"Scaling error: {e}. Ensure your CSV has the same 30 features used during training.")
+                st.stop()
             
-            # 3. Generate Actual Predictions
+            # 3. Generate Predictions
             y_pred = model.predict(X_scaled)
             
-            # Get probabilities for AUC (if supported by model)
+            # Get probabilities for AUC
             try:
                 y_proba = model.predict_proba(X_scaled)[:, 1]
-            except AttributeError:
-                y_proba = y_pred # Fallback if model doesn't support probabilities
+            except:
+                y_proba = y_pred 
 
             # --- 3. Display Metrics ---
             st.subheader(f"Results for {model_option}")
@@ -109,7 +117,7 @@ if uploaded_file is not None:
                 report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
                 st.dataframe(pd.DataFrame(report).transpose())
         else:
-            st.error(f"Model file '{model_option}.pkl' or 'scaler.pkl' not found in repository.")
+            st.error(f"Files not found. Looking for: {selected_filename} and scaler.pkl")
 
 else:
     st.info("Please upload a CSV file to begin evaluation.")
