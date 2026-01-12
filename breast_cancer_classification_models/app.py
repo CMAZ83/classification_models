@@ -44,7 +44,9 @@ if uploaded_file is not None:
     st.write("### Preview of Test Data")
     st.dataframe(df.head())
 
-    target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=len(df.columns)-1)
+    # Default to 'diagnosis' column if it exists, otherwise use last column
+    default_idx = df.columns.get_loc('diagnosis') if 'diagnosis' in df.columns else len(df.columns)-1
+    target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=default_idx)
     
     st.sidebar.header("2. Model Selection")
     
