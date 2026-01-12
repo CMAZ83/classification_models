@@ -79,19 +79,18 @@ if uploaded_file is not None:
                         cols_to_drop.append('id')
                     X_raw = df.drop(columns=cols_to_drop)
                     
-                    # Check if target column has valid values
-                    if df[target_col].isna().all():
-                        st.error(f"❌ The '{target_col}' column contains only missing values (NaN). Please upload a CSV file with actual diagnosis labels (M/B) to evaluate the model.")
-                        st.stop()
+                    # Check if we have actual labels for evaluation
+                    has_labels = not df[target_col].isna().all()
                     
-                    # Use standard breast cancer encoding: M=1 (Malignant), B=0 (Benign)
-                    label_map = {'M': 1, 'B': 0}
-                    y_true = df[target_col].map(label_map).values
-                    
-                    # Check for unmapped labels
-                    if np.isnan(y_true).any():
-                        unique_labels = df[target_col].unique()
-                        st.warning(f"⚠️ Found unexpected labels: {unique_labels}. Expected 'M' or 'B'.")
+                    if has_labels:
+                        # Use standard breast cancer encoding: M=1 (Malignant), B=0 (Benign)
+                        label_map = {'M': 1, 'B': 0}
+                        y_true = df[target_col].map(label_map).values
+                        
+                        # Check for unmapped labels
+                        if np.isnan(y_true).any():
+                            unique_labels = df[target_col].unique()
+                            st.warning(f"⚠️ Found unexpected labels: {unique_labels}. Expected 'M' or 'B'.")
                     
                     X_scaled = scaler.transform(X_raw) 
                     y_pred = model.predict(X_scaled)
@@ -101,36 +100,40 @@ if uploaded_file is not None:
                     except AttributeError:
                         y_proba = y_pred 
 
-                    # --- Debug Information ---
-                    st.write("### 🔍 Debug Information")
-                    d1, d2, d3 = st.columns(3)
-                    d1.write(f"**Original labels:** {df[target_col].unique()}")
-                    d1.write(f"**Label mapping:** M=1, B=0")
-                    d2.write(f"**True labels (unique):** {np.unique(y_true)}")
-                    d2.write(f"**True labels distribution:** {np.bincount(y_true.astype(int))}")
-                    d3.write(f"**Predicted labels (unique):** {np.unique(y_pred)}")
-                    d3.write(f"**Predicted labels distribution:** {np.bincount(y_pred)}")
-                    st.write(f"**Feature shape:** {X_scaled.shape}")
-                    
-                    # Warning for single-class datasets
-                    if len(np.unique(y_true)) == 1:
-                        st.warning("⚠️ **Single-class dataset detected.** Your test data contains only one diagnosis type. For comprehensive evaluation (AUC, MCC), include both Benign (B) and Malignant (M) samples.")
-                    
-                    st.write("---")
+                    if has_labels:
+                        # --- Debug Information (only in evaluation mode) ---
+                        st.write("### 🔍 Debug Information")
+                        d1, d2, d3 = st.columns(3)
+                        d1.write(f"**Original labels:** {df[target_col].unique()}")
+                        d1.write(f"**Label mapping:** M=1, B=0")
+                        d2.write(f"**True labels (unique):** {np.unique(y_true)}")
+                        d2.write(f"**True labels distribution:** {np.bincount(y_true.astype(int))}")
+                        d3.write(f"**Predicted labels (unique):** {np.unique(y_pred)}")
+                        d3.write(f"**Predicted labels distribution:** {np.bincount(y_pred)}")
+                        st.write(f"**Feature shape:** {X_scaled.shape}")
+                        
+                        # Warning for single-class datasets
+                        if len(np.unique(y_true)) == 1:
+                            st.warning("⚠️ **Single-class dataset detected.** Your test data contains only one diagnosis type. For comprehensive evaluation (AUC, MCC), include both Benign (B) and Malignant (M) samples.")
+                        
+                        st.write("---")
 
-                    # --- 5. Metrics Display ---
-                    st.subheader(f"Results for {model_option}")
-                    m1, m2, m3, m4, m5, m6 = st.columns(6)
-                    m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
-                    m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
-                    m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
-                    m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
-                    m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
-                    m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+                        # --- 5. Metrics Display ---
+                        st.subheader(f"Results for {model_option}")
+                        m1, m2, m3, m4, m5, m6 = st.columns(6)
+                        m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
+                        m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
+                        m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
+                        m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
+                        m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
+                        m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+                    else:
+                        st.info("ℹ️ **Prediction Mode**: No diagnosis labels found. Showing predictions only (no evaluation metrics).")
+                        st.subheader(f"Predictions from {model_option}")
 
                     # --- 6. Predictions Table ---
                     st.write("---")
-                    st.write("#### Predictions vs Actual")
+                    st.write("#### Predictions" + (" vs Actual" if has_labels else ""))
                     
                     # Create results dataframe
                     results_df = df.copy()
@@ -138,16 +141,19 @@ if uploaded_file is not None:
                     pred_labels = ['B' if p == 0 else 'M' for p in y_pred]
                     results_df['Predicted_Diagnosis'] = pred_labels
                     results_df['Prediction_Probability'] = y_proba if hasattr(y_proba, '__iter__') else y_pred
-                    results_df['Correct'] = (y_true == y_pred)
                     
-                    # Display with highlighting
-                    st.dataframe(
-                        results_df.style.applymap(
-                            lambda x: 'background-color: #90EE90' if x == True else ('background-color: #FFB6C6' if x == False else ''),
-                            subset=['Correct']
-                        ),
-                        use_container_width=True
-                    )
+                    if has_labels:
+                        results_df['Correct'] = (y_true == y_pred)
+                        # Display with highlighting
+                        st.dataframe(
+                            results_df.style.applymap(
+                                lambda x: 'background-color: #90EE90' if x == True else ('background-color: #FFB6C6' if x == False else ''),
+                                subset=['Correct']
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.dataframe(results_df, use_container_width=True)
                     
                     # --- 7. Visualizations ---
                     st.write("---")
