@@ -89,5 +89,5 @@ if uploaded_file is not None:
                 m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
 
                 # --- 6. Visualizations ---
-                #st.write("---")
-                #col_a, col_b = st.columns(2)
+                st.write("---")
+                col_a, col_b = st.columns(2)
