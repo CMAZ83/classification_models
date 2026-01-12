@@ -64,7 +64,7 @@ if uploaded_file is not None:
         if model is not None and scaler is not None:
             try:
                 # --- 4. Data Preparation & Prediction ---
-                X_raw = df.drop(columns=[target_col])
+                X_raw = df.drop(columns=[target_col, 'id'])
                 le = LabelEncoder()
                 y_true = le.fit_transform(df[target_col].astype(str))
                 
