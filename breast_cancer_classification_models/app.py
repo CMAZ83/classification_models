@@ -53,9 +53,9 @@ if uploaded_file is not None:
     
     # Mapping friendly names to your exact .pkl file paths
     model_map = {
-        "Logistic Regression": "model/breast_cancer_model_lr.pkl",
-        "Decision Tree": "model/breast_cancer_model_dt.pkl",
-        "XG Boost": "model/breast_cancer_model_xg.pkl"
+        "Logistic Regression": "breast_cancer_classification_models/model/breast_cancer_model_lr.pkl",
+        "Decision Tree": "breast_cancer_classification_models/model/breast_cancer_model_dt.pkl",
+        "XG Boost": "breast_cancer_classification_models/model/breast_cancer_model_xg.pkl"
     }
     
     model_option = st.sidebar.selectbox("Choose Trained Model", options=list(model_map.keys()))
