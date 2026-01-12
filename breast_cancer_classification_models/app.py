@@ -15,6 +15,7 @@ import seaborn as sns
 st.set_page_config(page_title="Breast Cancer Model Evaluator", layout="wide")
 
 st.title("📊 Breast Cancer Classification Evaluator")
+st.markdown("**ML Assignment 2 by 2024dc04022@wilp.bits-pilani.ac.in**")
 st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 
 # --- 1. Path Resolution Logic ---
