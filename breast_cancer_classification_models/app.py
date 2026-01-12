@@ -78,6 +78,11 @@ if uploaded_file is not None:
                         cols_to_drop.append('id')
                     X_raw = df.drop(columns=cols_to_drop)
                     
+                    # Check if target column has valid values
+                    if df[target_col].isna().all():
+                        st.error(f"❌ The '{target_col}' column contains only missing values (NaN). Please upload a CSV file with actual diagnosis labels (M/B) to evaluate the model.")
+                        st.stop()
+                    
                     le = LabelEncoder()
                     y_true = le.fit_transform(df[target_col].astype(str))
                     
