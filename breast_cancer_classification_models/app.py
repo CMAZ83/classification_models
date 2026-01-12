@@ -89,6 +89,18 @@ if uploaded_file is not None:
                     except AttributeError:
                         y_proba = y_pred 
 
+                    # --- Debug Information ---
+                    st.write("### 🔍 Debug Information")
+                    d1, d2, d3 = st.columns(3)
+                    d1.write(f"**Original labels:** {df[target_col].unique()}")
+                    d1.write(f"**Label encoding:** {dict(zip(le.classes_, range(len(le.classes_))))}")
+                    d2.write(f"**True labels (unique):** {np.unique(y_true)}")
+                    d2.write(f"**True labels distribution:** {np.bincount(y_true)}")
+                    d3.write(f"**Predicted labels (unique):** {np.unique(y_pred)}")
+                    d3.write(f"**Predicted labels distribution:** {np.bincount(y_pred)}")
+                    st.write(f"**Feature shape:** {X_scaled.shape}")
+                    st.write("---")
+
                     # --- 5. Metrics Display ---
                     st.subheader(f"Results for {model_option}")
                     m1, m2, m3, m4, m5, m6 = st.columns(6)
