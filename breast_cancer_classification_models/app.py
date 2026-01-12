@@ -20,19 +20,16 @@ st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 # --- 1. Path Resolution Logic ---
 ROOT = os.getcwd()
 SUBFOLDER = "breast_cancer_classification_models"
-# Logic to handle both local and Streamlit Cloud directory structures
 MODEL_DIR = os.path.join(ROOT, SUBFOLDER, "model") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "model")
 
 # --- 2. Optimized Asset Loading ---
 @st.cache_resource
 def get_scaler():
-    """Loads the universal scaler using absolute path resolution."""
     path = os.path.join(MODEL_DIR, "scaler.pkl")
     return joblib.load(path) if os.path.exists(path) else None
 
 @st.cache_resource
 def get_model(filename):
-    """Loads the specific model from the correct directory."""
     path = os.path.join(MODEL_DIR, filename)
     return joblib.load(path) if os.path.exists(path) else None
 
@@ -45,7 +42,6 @@ if uploaded_file is not None:
     st.write("### Preview of Test Data")
     st.dataframe(df.head())
 
-    # Dynamically select the target column
     target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=len(df.columns)-1)
     
     st.sidebar.header("2. Model Selection")
@@ -64,20 +60,19 @@ if uploaded_file is not None:
 
         if model is not None and scaler is not None:
             try:
-                # --- 4. Data Preparation & Prediction ---
-                # FIX: Explicitly drop 'id' and 'diagnosis' columns to avoid feature name mismatch
+                # --- 4. Data Preparation ---
+                # Drop ID and Diagnosis to leave exactly 30 features
                 cols_to_ignore = [col for col in df.columns if col.lower() in ['id', 'diagnosis']]
                 X_raw = df.drop(columns=cols_to_ignore)
                 
-                # Check for label existence for metric calculation
+                # Label Encoding for metrics
                 le = LabelEncoder()
                 y_true = le.fit_transform(df[target_col].astype(str))
                 
-                # Apply scaling and generate predictions
+                # Scaling and Prediction
                 X_scaled = scaler.transform(X_raw) 
                 y_pred = model.predict(X_scaled)
                 
-                # Attempt probability prediction for AUC
                 try:
                     y_proba = model.predict_proba(X_scaled)[:, 1]
                 except AttributeError:
@@ -87,3 +82,12 @@ if uploaded_file is not None:
                 st.subheader(f"Results for {model_option}")
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
                 m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
+                m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
+                m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
+                m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
+                m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
+                m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+
+                # --- 6. Visualizations ---
+                st.write("---")
+                col_a, col_b = st.columns(2)
