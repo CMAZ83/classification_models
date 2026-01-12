@@ -21,7 +21,7 @@ st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 @st.cache_resource
 def load_ml_assets(model_filename):
     """Loads the model based on the mapped filename and the universal scaler."""
-    scaler_path = "scaler.pkl"
+    scaler_path = "model/scaler.pkl"
     
     if os.path.exists(model_filename) and os.path.exists(scaler_path):
         model = joblib.load(model_filename)
