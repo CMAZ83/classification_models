@@ -155,22 +155,34 @@ if uploaded_file is not None:
                     else:
                         st.dataframe(results_df, use_container_width=True)
                     
-                    # --- 7. Visualizations ---
-                    st.write("---")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.write("#### Confusion Matrix")
-                        cm = confusion_matrix(y_true, y_pred)
-                        fig, ax = plt.subplots()
-                        sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
-                        st.pyplot(fig)
-                    with col_b:
-                        st.write("#### Classification Report")
-                        report = classification_report(y_true, y_pred, output_dict=True)
-                        st.dataframe(pd.DataFrame(report).transpose())
+                    # --- 7. Visualizations (only in evaluation mode) ---
+                    if has_labels:
+                        st.write("---")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            st.write("#### Confusion Matrix")
+                            cm = confusion_matrix(y_true, y_pred)
+                            fig, ax = plt.subplots()
+                            sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
+                            st.pyplot(fig)
+                        with col_b:
+                            st.write("#### Classification Report")
+                            report = classification_report(y_true, y_pred, output_dict=True)
+                            st.dataframe(pd.DataFrame(report).transpose())
+                    else:
+                        st.write("---")
+                        st.write("#### Prediction Summary")
+                        pred_counts = pd.Series(y_pred).map({0: 'Benign', 1: 'Malignant'}).value_counts()
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Total Samples", len(y_pred))
+                        if 'Benign' in pred_counts:
+                            col2.metric("Benign (B)", pred_counts.get('Benign', 0))
+                        if 'Malignant' in pred_counts:
+                            col3.metric("Malignant (M)", pred_counts.get('Malignant', 0))
 
                 except Exception as e:
-                    st.error(f"Computation Error: {e}")
+                    st.error(f"❌ An error occurred during prediction. Please check your data format.")
+                    st.exception(e)
         else:
             st.error(f"File Error: Could not find '{selected_filename}' in {MODEL_DIR}")
 else:
