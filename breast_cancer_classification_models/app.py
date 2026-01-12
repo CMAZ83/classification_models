@@ -15,97 +15,92 @@ import seaborn as sns
 st.set_page_config(page_title="Breast Cancer Model Evaluator", layout="wide")
 
 st.title("📊 Breast Cancer Classification Evaluator")
-st.markdown("Upload a test dataset to evaluate your pre-trained models.")
+st.markdown("Upload a test dataset to evaluate performance or predict outcomes.")
 
-# --- 1. Path Resolution Logic ---
-# This ensures the app finds the 'model' folder even if it's inside a sub-directory
+# Path Resolution for GitHub Codespaces / Streamlit Cloud
 ROOT = os.getcwd()
-SUBFOLDER = "breast_cancer_classification_models"
-MODEL_DIR = os.path.join(ROOT, SUBFOLDER, "model") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "model")
+SUB_FOLDER = "breast_cancer_classification_models"
+MODEL_DIR = os.path.join(ROOT, SUB_FOLDER, "model") if os.path.exists(os.path.join(ROOT, SUB_FOLDER)) else os.path.join(ROOT, "model")
 
-# --- 2. Optimized Asset Loading ---
+# --- Asset Loading (Cachable) ---
 @st.cache_resource
-def get_scaler():
-    """Loads the universal scaler using absolute path resolution."""
-    path = os.path.join(MODEL_DIR, "scaler.pkl")
-    return joblib.load(path) if os.path.exists(path) else None
+def load_assets(model_file):
+    scaler_path = os.path.join(MODEL_DIR, "scaler.pkl")
+    model_path = os.path.join(MODEL_DIR, model_file)
+    if os.path.exists(scaler_path) and os.path.exists(model_path):
+        return joblib.load(model_path), joblib.load(scaler_path)
+    return None, None
 
-@st.cache_resource
-def get_model(filename):
-    """Loads the specific model from the correct directory."""
-    path = os.path.join(MODEL_DIR, filename)
-    return joblib.load(path) if os.path.exists(path) else None
-
-# --- 3. Sidebar Configuration ---
+# --- a. Dataset Upload Option [Requirement A] ---
 st.sidebar.header("1. Upload Data")
-uploaded_file = st.sidebar.file_uploader("Upload test CSV", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload test CSV file", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.write("### Preview of Test Data")
+    st.write("### Test Data Preview")
     st.dataframe(df.head())
 
-    target_col = st.sidebar.selectbox("Select Target (Diagnosis)", df.columns, index=len(df.columns)-1)
+    # Check if Diagnosis exists for Evaluation Mode
+    has_labels = "diagnosis" in [col.lower() for col in df.columns]
     
+    # --- b. Model Selection Dropdown [Requirement B] ---
     st.sidebar.header("2. Model Selection")
-    
-    # Mapping friendly names to filenames (NO directory prefix here, handled by loader)
     model_map = {
         "Logistic Regression": "breast_cancer_model_lr.pkl",
         "Decision Tree": "breast_cancer_model_dt.pkl",
         "XG Boost": "breast_cancer_model_xg.pkl"
     }
-    
-    # FIX: Corrected .kevs() to .keys() from your image_c87310.png
-    model_option = st.sidebar.selectbox("Choose Trained Model", options=list(model_map.keys()))
-    selected_filename = model_map[model_option]
+    model_option = st.sidebar.selectbox("Choose Model", options=list(model_map.keys()))
 
-    if st.button("Run Evaluation"):
-        model = get_model(selected_filename)
-        scaler = get_scaler()
+    if st.button("Run Model"):
+        model, scaler = load_assets(model_map[model_option])
 
-        if model is not None and scaler is not None:
+        if model is not None:
             try:
-                # --- 4. Data Preparation & Prediction ---
-                X_raw = df.drop(columns=[target_col])
-                le = LabelEncoder()
-                y_true = le.fit_transform(df[target_col].astype(str))
+                # Data Prep: Handle features only (30 columns)
+                # If diagnosis exists, drop it; otherwise, take all columns
+                if has_labels:
+                    target_col = [col for col in df.columns if col.lower() == "diagnosis"][0]
+                    X = df.drop(columns=[target_col])
+                    y_true = LabelEncoder().fit_transform(df[target_col].astype(str))
+                else:
+                    X = df
                 
-                X_scaled = scaler.transform(X_raw) #
+                # Inference
+                X_scaled = scaler.transform(X)
                 y_pred = model.predict(X_scaled)
-                
-                try:
-                    y_proba = model.predict_proba(X_scaled)[:, 1]
-                except AttributeError:
-                    y_proba = y_pred 
 
-                # --- 5. Metrics Display ---
-                st.subheader(f"Results for {model_option}")
-                m1, m2, m3, m4, m5, m6 = st.columns(6)
-                m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
-                m2.metric("AUC", f"{roc_auc_score(y_true, y_proba):.2f}")
-                m3.metric("MCC", f"{matthews_corrcoef(y_true, y_pred):.2f}")
-                m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
-                m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
-                m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+                # --- c. Display Evaluation Metrics [Requirement C] ---
+                if has_labels:
+                    st.subheader(f"📈 Evaluation Metrics: {model_option}")
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
+                    m2.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
+                    m3.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
+                    m4.metric("MCC Score", f"{matthews_corrcoef(y_true, y_pred):.2f}")
 
-                # --- 6. Visualizations ---
-                st.write("---")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.write("#### Confusion Matrix")
-                    cm = confusion_matrix(y_true, y_pred)
-                    fig, ax = plt.subplots()
-                    sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
-                    st.pyplot(fig)
-                with col_b:
-                    st.write("#### Classification Report")
-                    report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
-                    st.dataframe(pd.DataFrame(report).transpose())
+                    # --- d. Confusion Matrix & Report [Requirement D] ---
+                    st.write("---")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write("#### Confusion Matrix")
+                        cm = confusion_matrix(y_true, y_pred)
+                        fig, ax = plt.subplots()
+                        sns.heatmap(cm, annot=True, fmt='g', cmap='Blues', ax=ax)
+                        st.pyplot(fig)
+                    with c2:
+                        st.write("#### Classification Report")
+                        report = classification_report(y_true, y_pred, output_dict=True)
+                        st.dataframe(pd.DataFrame(report).transpose())
+                else:
+                    # Prediction Only Mode (if no diagnosis column exists)
+                    st.success("Predictions Complete!")
+                    results = pd.DataFrame({"Prediction": ["Malignant" if p == 1 else "Benign" for p in y_pred]})
+                    st.dataframe(pd.concat([df, results], axis=1))
 
             except Exception as e:
                 st.error(f"Computation Error: {e}")
         else:
-            st.error(f"File Error: Could not find '{selected_filename}' in {MODEL_DIR}")
+            st.error(f"Model files not found in {MODEL_DIR}")
 else:
-    st.info("Please upload a CSV file to begin.")
+    st.info("Upload a CSV file to begin.")
