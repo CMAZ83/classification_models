@@ -128,7 +128,28 @@ if uploaded_file is not None:
                     m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
                     m6.metric("F1", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
 
-                    # --- 6. Visualizations ---
+                    # --- 6. Predictions Table ---
+                    st.write("---")
+                    st.write("#### Predictions vs Actual")
+                    
+                    # Create results dataframe
+                    results_df = df.copy()
+                    # Map predictions back to labels
+                    pred_labels = ['B' if p == 0 else 'M' for p in y_pred]
+                    results_df['Predicted_Diagnosis'] = pred_labels
+                    results_df['Prediction_Probability'] = y_proba if hasattr(y_proba, '__iter__') else y_pred
+                    results_df['Correct'] = (y_true == y_pred)
+                    
+                    # Display with highlighting
+                    st.dataframe(
+                        results_df.style.applymap(
+                            lambda x: 'background-color: #90EE90' if x == True else ('background-color: #FFB6C6' if x == False else ''),
+                            subset=['Correct']
+                        ),
+                        use_container_width=True
+                    )
+                    
+                    # --- 7. Visualizations ---
                     st.write("---")
                     col_a, col_b = st.columns(2)
                     with col_a:
