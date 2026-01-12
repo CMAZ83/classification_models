@@ -64,22 +64,13 @@ if uploaded_file is not None:
         if model is not None and scaler is not None:
             try:
                 # --- 4. Data Preparation & Prediction ---
-                # Fix: Exclude both the target column AND any 'id' column
-                cols_to_drop = [col for col in df.columns if col.lower() in [target_col.lower(), 'id']]
-                X_raw = df.drop(columns=cols_to_drop)
-                
-                # Validation: Ensure exactly 30 features remain for the model
-                if X_raw.shape[1] != 30:
-                    st.warning(f"Feature count mismatch: Expected 30, but found {X_raw.shape[1]}. Check if 'id' was correctly excluded.")
-
+                X_raw = df.drop(columns=[target_col])
                 le = LabelEncoder()
                 y_true = le.fit_transform(df[target_col].astype(str))
                 
-                # Scale and Predict
                 X_scaled = scaler.transform(X_raw) 
                 y_pred = model.predict(X_scaled)
                 
-                # Probability handling for metrics
                 try:
                     y_proba = model.predict_proba(X_scaled)[:, 1]
                 except AttributeError:
@@ -103,8 +94,6 @@ if uploaded_file is not None:
                     cm = confusion_matrix(y_true, y_pred)
                     fig, ax = plt.subplots()
                     sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
-                    plt.xlabel('Predicted')
-                    plt.ylabel('Actual')
                     st.pyplot(fig)
                 with col_b:
                     st.write("#### Classification Report")
@@ -114,6 +103,6 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"Computation Error: {e}")
         else:
-            st.error(f"File Error: Could not find '{selected_filename}' or 'scaler.pkl' in {MODEL_DIR}")
+            st.error(f"File Error: Could not find '{selected_filename}' in {MODEL_DIR}")
 else:
     st.info("Please upload a CSV file to begin.")
