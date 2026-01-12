@@ -18,7 +18,6 @@ st.title("📊 Breast Cancer Classification Evaluator")
 st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 
 # --- 1. Path Resolution Logic ---
-# This ensures the app finds the 'model' folder even if it's inside a sub-directory
 ROOT = os.getcwd()
 SUBFOLDER = "breast_cancer_classification_models"
 MODEL_DIR = os.path.join(ROOT, SUBFOLDER, "model") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "model")
@@ -49,14 +48,13 @@ if uploaded_file is not None:
     
     st.sidebar.header("2. Model Selection")
     
-    # Mapping friendly names to filenames (NO directory prefix here, handled by loader)
     model_map = {
         "Logistic Regression": "breast_cancer_model_lr.pkl",
         "Decision Tree": "breast_cancer_model_dt.pkl",
         "XG Boost": "breast_cancer_model_xg.pkl"
     }
     
-    # FIX: Corrected .kevs() to .keys() from your image_c87310.png
+    
     model_option = st.sidebar.selectbox("Choose Trained Model", options=list(model_map.keys()))
     selected_filename = model_map[model_option]
 
