@@ -25,10 +25,20 @@ MODEL_DIR = os.path.join(ROOT, SUB_FOLDER, "model") if os.path.exists(os.path.jo
 # --- Asset Loading (Cachable) ---
 @st.cache_resource
 def load_assets(model_file):
+    # Construct the full path
     scaler_path = os.path.join(MODEL_DIR, "scaler.pkl")
     model_path = os.path.join(MODEL_DIR, model_file)
+    
+    # Debug print to terminal to see what is happening
+    print(f"Loading model from: {model_path}")
+
     if os.path.exists(scaler_path) and os.path.exists(model_path):
-        return joblib.load(model_path), joblib.load(scaler_path)
+        # This returns the ACTUAL objects, which have the .predict() method
+        model_obj = joblib.load(model_path)
+        scaler_obj = joblib.load(scaler_path)
+        return model_obj, scaler_obj
+    
+    # If files are missing, return None so the app doesn't try to call .predict()
     return None, None
 
 # --- a. Dataset Upload Option [Requirement A] ---
