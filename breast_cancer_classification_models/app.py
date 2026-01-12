@@ -108,7 +108,7 @@ if uploaded_file is not None:
                         st.pyplot(fig)
                     with col_b:
                         st.write("#### Classification Report")
-                        report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
+                        report = classification_report(y_true, y_pred, output_dict=True)
                         st.dataframe(pd.DataFrame(report).transpose())
 
                 except Exception as e:
