@@ -1,10 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, 
+    confusion_matrix, classification_report, roc_auc_score, matthews_corrcoef
+)
+from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
-import joblib
 
 # Page Configuration
 st.set_page_config(page_title="Model Evaluator", layout="wide")
@@ -12,7 +15,7 @@ st.set_page_config(page_title="Model Evaluator", layout="wide")
 st.title("📊 Classification Model Evaluation App")
 st.markdown("Upload your test dataset to evaluate model performance and view metrics.")
 
-# --- a. Dataset Upload Option ---
+# --- 1. Dataset Upload Option ---
 st.sidebar.header("1. Upload Data")
 uploaded_file = st.sidebar.file_uploader("Upload your test CSV file", type=["csv"])
 
@@ -21,38 +24,46 @@ if uploaded_file is not None:
     st.write("### Preview of Test Data")
     st.dataframe(df.head())
 
-    # Assume the last column is the target/ground truth
+    # User selects the ground truth column
     target_col = st.sidebar.selectbox("Select Target (Ground Truth) Column", df.columns, index=len(df.columns)-1)
-    feature_cols = [col for col in df.columns if col != target_col]
-
-    # --- b. Model Selection Dropdown ---
+    
+    # --- 2. Model Selection Dropdown ---
     st.sidebar.header("2. Model Selection")
     model_option = st.sidebar.selectbox(
         "Choose Model to Evaluate",
         ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest", "XGBoost"]
     )
 
-    # In a real app, you would load your trained .pkl file here:
-    # model = joblib.load(f"{model_option}.pkl")
-    
-    st.warning("⚠️ Note: This demo requires a pre-trained model or a function to generate predictions.")
-
     if st.button("Run Evaluation"):
-        # Placeholder: Generate random predictions for demonstration
-        # Replace y_pred with: model.predict(df[feature_cols])
-        y_true = df[target_col]
-        y_pred = np.random.choice(y_true.unique(), size=len(y_true)) 
+        # --- Data Preparation ---
+        # Ensure y_true is numeric for metric calculations
+        le = LabelEncoder()
+        y_true = le.fit_transform(df[target_col].astype(str))
+        
+        # Placeholder Prediction Logic
+        # In production: y_pred = model.predict(df.drop(columns=[target_col]))
+        # Generating random binary predictions (0 or 1) to match encoded y_true
+        y_pred = np.random.randint(0, 2, size=len(y_true)) 
+        
+        # Generating random probabilities for AUC score
+        y_proba = np.random.uniform(0, 1, size=len(y_true))
 
-        # --- c. Display Evaluation Metrics ---
+        # --- 3. Display Evaluation Metrics ---
         st.subheader(f"Results for {model_option}")
         
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
-        col2.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
-        col3.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
-        col4.metric("F1 Score", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+        # First row of metrics
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Accuracy", f"{accuracy_score(y_true, y_pred):.2f}")
+        m2.metric("AUC Score", f"{roc_auc_score(y_true, y_proba):.2f}")
+        m3.metric("MCC Score", f"{matthews_corrcoef(y_true, y_pred):.2f}")
 
-        # --- d. Confusion Matrix & Classification Report ---
+        # Second row of metrics
+        m4, m5, m6 = st.columns(3)
+        m4.metric("Precision", f"{precision_score(y_true, y_pred, average='weighted'):.2f}")
+        m5.metric("Recall", f"{recall_score(y_true, y_pred, average='weighted'):.2f}")
+        m6.metric("F1 Score", f"{f1_score(y_true, y_pred, average='weighted'):.2f}")
+
+        # --- 4. Visualizations ---
         st.write("---")
         c1, c2 = st.columns(2)
 
@@ -67,7 +78,8 @@ if uploaded_file is not None:
 
         with c2:
             st.write("#### Classification Report")
-            report = classification_report(y_true, y_pred, output_dict=True)
+            # We use target_names so the report shows 'Benign/Malignant' instead of '0/1'
+            report = classification_report(y_true, y_pred, target_names=[str(c) for c in le.classes_], output_dict=True)
             st.dataframe(pd.DataFrame(report).transpose())
 
 else:
