@@ -110,6 +110,11 @@ if uploaded_file is not None:
                     d3.write(f"**Predicted labels (unique):** {np.unique(y_pred)}")
                     d3.write(f"**Predicted labels distribution:** {np.bincount(y_pred)}")
                     st.write(f"**Feature shape:** {X_scaled.shape}")
+                    
+                    # Warning for single-class datasets
+                    if len(np.unique(y_true)) == 1:
+                        st.warning("⚠️ **Single-class dataset detected.** Your test data contains only one diagnosis type. For comprehensive evaluation (AUC, MCC), include both Benign (B) and Malignant (M) samples.")
+                    
                     st.write("---")
 
                     # --- 5. Metrics Display ---
