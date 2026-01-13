@@ -21,10 +21,7 @@ Each feature describes properties of the cell nucleus:
 - **Perimeter:** Length around the nucleus  
 - **Area:** Total surface area of the nucleus  
 - **Smoothness:** Local variation in radius lengths  
-- **Compactness:**  
-  \[
-  \frac{\text{perimeter}^2}{\text{area}} - 1.0
-  \]
+- **Compactness:**  (perimeter² / area) − 1.0
 - **Concavity:** Severity of concave portions of the contour  
 - **Concave Points:** Number of concave portions of the contour  
 - **Symmetry:** Symmetry of the nucleus shape  
