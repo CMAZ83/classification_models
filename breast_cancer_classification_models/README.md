@@ -1,4 +1,4 @@
-# classification_models
+# Breast Cancer Classification Models
 
 ### a. Problem Statement
 The goal of this project is to evaluate and compare the performance of various machine learning algorithms to predict whether a patient might have breast cancer. By analyzing different metrics, we aim to identify the most reliable model for this specific classification task.
