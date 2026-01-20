@@ -297,13 +297,141 @@ if uploaded_file is not None:
                             st.write("#### Confusion Matrix")
                             cm = confusion_matrix(y_true, y_pred)
                             fig, ax = plt.subplots()
-                            sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax)
+                            sns.heatmap(cm, annot=True, fmt='g', cmap='Purples', ax=ax,
+                                      xticklabels=['Benign', 'Malignant'],
+                                      yticklabels=['Benign', 'Malignant'])
+                            ax.set_xlabel('Predicted')
+                            ax.set_ylabel('Actual')
                             st.pyplot(fig)
+                            plt.close()
                         with col_b:
                             st.write("#### Classification Report")
                             report = classification_report(y_true, y_pred, output_dict=True)
                             st.dataframe(pd.DataFrame(report).transpose())
-                    else:
+                    
+                    # Move to Advanced Visualizations tab
+                    with tab3:
+                        st.header("Advanced Visualizations")
+                        
+                        if has_labels:
+                            # ROC Curve
+                            st.subheader("1. ROC Curve")
+                            fpr, tpr, thresholds = roc_curve(y_true, y_proba)
+                            roc_auc = auc(fpr, tpr)
+                            
+                            fig_roc, ax_roc = plt.subplots(figsize=(8, 6))
+                            ax_roc.plot(fpr, tpr, color='darkorange', lw=2, 
+                                       label=f'ROC curve (AUC = {roc_auc:.3f})')
+                            ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', 
+                                       label='Random Classifier')
+                            ax_roc.set_xlim([0.0, 1.0])
+                            ax_roc.set_ylim([0.0, 1.05])
+                            ax_roc.set_xlabel('False Positive Rate')
+                            ax_roc.set_ylabel('True Positive Rate')
+                            ax_roc.set_title(f'Receiver Operating Characteristic - {model_option}')
+                            ax_roc.legend(loc="lower right")
+                            ax_roc.grid(alpha=0.3)
+                            st.pyplot(fig_roc)
+                            plt.close()
+                            
+                            # Prediction Probability Distribution
+                            st.subheader("2. Prediction Probability Distribution")
+                            fig_prob, ax_prob = plt.subplots(figsize=(10, 5))
+                            
+                            # Separate probabilities by actual class
+                            benign_probs = y_proba[y_true == 0]
+                            malignant_probs = y_proba[y_true == 1]
+                            
+                            ax_prob.hist(benign_probs, bins=30, alpha=0.6, label='Benign (Actual)', color='green')
+                            ax_prob.hist(malignant_probs, bins=30, alpha=0.6, label='Malignant (Actual)', color='red')
+                            ax_prob.axvline(x=0.5, color='black', linestyle='--', linewidth=2, label='Decision Threshold')
+                            ax_prob.set_xlabel('Predicted Probability (Malignant)')
+                            ax_prob.set_ylabel('Count')
+                            ax_prob.set_title('Distribution of Prediction Probabilities by Actual Class')
+                            ax_prob.legend()
+                            ax_prob.grid(alpha=0.3)
+                            st.pyplot(fig_prob)
+                            plt.close()
+                            
+                            # Feature Importance (for tree-based models)
+                            if hasattr(model, 'feature_importances_'):
+                                st.subheader("3. Feature Importance")
+                                feature_importance = pd.DataFrame({
+                                    'Feature': X_raw.columns,
+                                    'Importance': model.feature_importances_
+                                }).sort_values('Importance', ascending=False).head(15)
+                                
+                                fig_imp, ax_imp = plt.subplots(figsize=(10, 6))
+                                sns.barplot(data=feature_importance, y='Feature', x='Importance', 
+                                          palette='viridis', ax=ax_imp)
+                                ax_imp.set_title('Top 15 Feature Importances')
+                                ax_imp.set_xlabel('Importance Score')
+                                st.pyplot(fig_imp)
+                                plt.close()
+                            
+                            # Error Analysis
+                            st.subheader("4. Error Analysis")
+                            misclassified = results_df[results_df['Correct'] == False]
+                            
+                            if len(misclassified) > 0:
+                                st.write(f"**Total Misclassified Samples:** {len(misclassified)} ({len(misclassified)/len(results_df)*100:.2f}%)")
+                                
+                                col_err1, col_err2 = st.columns(2)
+                                
+                                with col_err1:
+                                    st.write("##### False Positives (Predicted M, Actually B)")
+                                    false_positives = len(misclassified[(misclassified[target_col] == 'B') & 
+                                                                       (misclassified['Predicted_Diagnosis'] == 'M')])
+                                    st.metric("Count", false_positives)
+                                
+                                with col_err2:
+                                    st.write("##### False Negatives (Predicted B, Actually M)")
+                                    false_negatives = len(misclassified[(misclassified[target_col] == 'M') & 
+                                                                       (misclassified['Predicted_Diagnosis'] == 'B')])
+                                    st.metric("Count", false_negatives)
+                                
+                                st.write("##### Misclassified Samples Details")
+                                st.dataframe(misclassified, use_container_width=True)
+                            else:
+                                st.success("🎉 Perfect classification! No errors detected.")
+                            
+                            # Confidence Analysis
+                            st.subheader("5. Prediction Confidence Analysis")
+                            results_df['Confidence'] = np.maximum(y_proba, 1 - y_proba)
+                            
+                            fig_conf, axes_conf = plt.subplots(1, 2, figsize=(14, 5))
+                            
+                            # Confidence distribution
+                            axes_conf[0].hist(results_df['Confidence'], bins=30, color='steelblue', edgecolor='black')
+                            axes_conf[0].axvline(x=results_df['Confidence'].mean(), color='red', 
+                                               linestyle='--', linewidth=2, label=f'Mean: {results_df["Confidence"].mean():.3f}')
+                            axes_conf[0].set_xlabel('Prediction Confidence')
+                            axes_conf[0].set_ylabel('Count')
+                            axes_conf[0].set_title('Distribution of Prediction Confidence')
+                            axes_conf[0].legend()
+                            axes_conf[0].grid(alpha=0.3)
+                            
+                            # Confidence vs Correctness
+                            correct_conf = results_df[results_df['Correct'] == True]['Confidence']
+                            incorrect_conf = results_df[results_df['Correct'] == False]['Confidence']
+                            
+                            axes_conf[1].hist(correct_conf, bins=20, alpha=0.6, label='Correct', color='green')
+                            if len(incorrect_conf) > 0:
+                                axes_conf[1].hist(incorrect_conf, bins=20, alpha=0.6, label='Incorrect', color='red')
+                            axes_conf[1].set_xlabel('Prediction Confidence')
+                            axes_conf[1].set_ylabel('Count')
+                            axes_conf[1].set_title('Confidence by Prediction Correctness')
+                            axes_conf[1].legend()
+                            axes_conf[1].grid(alpha=0.3)
+                            
+                            plt.tight_layout()
+                            st.pyplot(fig_conf)
+                            plt.close()
+                            
+                        else:
+                            st.info("ℹ️ Advanced visualizations are only available when actual diagnosis labels are provided in the dataset.")
+                    
+                    if not has_labels:
                         st.write("---")
                         st.write("#### Prediction Summary")
                         pred_counts = pd.Series(y_pred).map({0: 'Benign', 1: 'Malignant'}).value_counts()
