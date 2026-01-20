@@ -5,11 +5,14 @@ import joblib
 import os
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, 
-    confusion_matrix, classification_report, roc_auc_score, matthews_corrcoef
+    confusion_matrix, classification_report, roc_auc_score, matthews_corrcoef,
+    roc_curve, auc
 )
 from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy import stats
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Breast Cancer Model Evaluator", layout="wide")
