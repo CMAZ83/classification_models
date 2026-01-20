@@ -45,8 +45,139 @@ uploaded_file = st.sidebar.file_uploader("Upload test CSV", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.write("### Preview of Test Data")
-    st.dataframe(df.head())
+    
+    # --- Exploratory Data Analysis Tab ---
+    tab1, tab2, tab3 = st.tabs(["📊 Model Evaluation", "🔍 Exploratory Analytics", "📈 Advanced Visualizations"])
+    
+    with tab2:
+        st.header("Exploratory Data Analysis")
+        
+        # Data Summary
+        st.subheader("1. Data Summary")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Samples", len(df))
+        col2.metric("Total Features", len(df.columns))
+        col3.metric("Missing Values", df.isnull().sum().sum())
+        
+        if 'diagnosis' in df.columns:
+            diagnosis_counts = df['diagnosis'].value_counts()
+            col4.metric("Diagnosis Distribution", f"M:{diagnosis_counts.get('M', 0)} | B:{diagnosis_counts.get('B', 0)}")
+        
+        # Statistical Summary
+        st.subheader("2. Statistical Summary")
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if 'id' in numeric_cols:
+            numeric_cols.remove('id')
+        st.dataframe(df[numeric_cols].describe(), use_container_width=True)
+        
+        # Correlation Matrix
+        st.subheader("3. Correlation Matrix")
+        fig_corr, ax_corr = plt.subplots(figsize=(14, 10))
+        correlation_matrix = df[numeric_cols].corr()
+        sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm', center=0, 
+                   linewidths=0.5, cbar_kws={"shrink": 0.8}, ax=ax_corr)
+        plt.title('Feature Correlation Matrix', fontsize=16, pad=20)
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        st.pyplot(fig_corr)
+        plt.close()
+        
+        # Top Correlations
+        st.subheader("4. Top Feature Correlations")
+        corr_pairs = []
+        for i in range(len(correlation_matrix.columns)):
+            for j in range(i+1, len(correlation_matrix.columns)):
+                corr_pairs.append({
+                    'Feature 1': correlation_matrix.columns[i],
+                    'Feature 2': correlation_matrix.columns[j],
+                    'Correlation': correlation_matrix.iloc[i, j]
+                })
+        corr_df = pd.DataFrame(corr_pairs).sort_values('Correlation', key=abs, ascending=False).head(10)
+        st.dataframe(corr_df, use_container_width=True)
+        
+        # Outlier Detection
+        st.subheader("5. Outlier Detection (IQR Method)")
+        outlier_info = []
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
+            if len(outliers) > 0:
+                outlier_info.append({
+                    'Feature': col,
+                    'Outlier Count': len(outliers),
+                    'Percentage': f"{(len(outliers)/len(df)*100):.2f}%"
+                })
+        
+        if outlier_info:
+            outlier_df = pd.DataFrame(outlier_info).sort_values('Outlier Count', ascending=False)
+            st.dataframe(outlier_df, use_container_width=True)
+            
+            # Box plots for top features with outliers
+            st.write("#### Box Plots (Top 6 Features with Outliers)")
+            top_outlier_features = outlier_df.head(6)['Feature'].tolist()
+            fig_box, axes = plt.subplots(2, 3, figsize=(15, 8))
+            axes = axes.ravel()
+            for idx, feature in enumerate(top_outlier_features):
+                sns.boxplot(y=df[feature], ax=axes[idx], color='skyblue')
+                axes[idx].set_title(feature, fontsize=10)
+                axes[idx].set_ylabel('Value')
+            plt.tight_layout()
+            st.pyplot(fig_box)
+            plt.close()
+        else:
+            st.info("No outliers detected using IQR method.")
+        
+        # Feature Distributions (if diagnosis column exists)
+        if 'diagnosis' in df.columns:
+            st.subheader("6. Feature Distributions by Diagnosis")
+            selected_features = st.multiselect(
+                "Select features to visualize:",
+                numeric_cols[:10],  # Show first 10 features by default
+                default=numeric_cols[:3] if len(numeric_cols) >= 3 else numeric_cols
+            )
+            
+            if selected_features:
+                num_features = len(selected_features)
+                cols_per_row = 2
+                rows = (num_features + cols_per_row - 1) // cols_per_row
+                
+                fig_dist, axes = plt.subplots(rows, cols_per_row, figsize=(14, rows*4))
+                if rows == 1:
+                    axes = axes.reshape(1, -1)
+                axes = axes.ravel()
+                
+                for idx, feature in enumerate(selected_features):
+                    for diagnosis in df['diagnosis'].unique():
+                        if pd.notna(diagnosis):
+                            subset = df[df['diagnosis'] == diagnosis][feature]
+                            axes[idx].hist(subset, alpha=0.6, label=f'{diagnosis}', bins=20)
+                    axes[idx].set_title(feature, fontsize=11)
+                    axes[idx].set_xlabel('Value')
+                    axes[idx].set_ylabel('Frequency')
+                    axes[idx].legend()
+                
+                # Hide empty subplots
+                for idx in range(num_features, len(axes)):
+                    axes[idx].axis('off')
+                
+                plt.tight_layout()
+                st.pyplot(fig_dist)
+                plt.close()
+    
+    with tab1:
+        # Original content moved to tab1
+        st.write("### Preview of Test Data")
+        st.dataframe(df.head())
+
+    with tab1:
+        # Original content moved to tab1
+        st.write("### Preview of Test Data")
+        st.dataframe(df.head())
 
     # Default to 'diagnosis' column if it exists, otherwise use last column
     default_idx = df.columns.get_loc('diagnosis') if 'diagnosis' in df.columns else len(df.columns)-1
