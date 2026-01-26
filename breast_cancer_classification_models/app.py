@@ -1,5 +1,9 @@
+# breast_cancer_classification_models/app.py
+# Streamlit app for evaluating breast cancer classification models with enhanced EDA and visualizations
+# Author: 2024dc04022
 import streamlit as st
 import pandas as pd
+import os
 import numpy as np
 import joblib
 import os
