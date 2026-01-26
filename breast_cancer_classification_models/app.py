@@ -21,10 +21,6 @@ from scipy import stats
 # --- Page Configuration ---
 st.set_page_config(page_title="Breast Cancer Model Evaluator", layout="wide")
 
-st.title("📊 Breast Cancer Classification Evaluator")
-st.markdown("**ML Assignment 2 by 2024dc04022@wilp.bits-pilani.ac.in**")
-st.markdown("Upload a test dataset to evaluate your pre-trained models.")
-
 # --- 1. Path Resolution Logic ---
 ROOT = os.getcwd()
 SUBFOLDER = "breast_cancer_classification_models"
@@ -42,6 +38,35 @@ def get_model(filename):
     """Loads the specific model from the correct directory."""
     path = os.path.join(MODEL_DIR, filename)
     return joblib.load(path) if os.path.exists(path) else None
+
+st.title("📊 Breast Cancer Classification Evaluator")
+st.markdown("**ML Assignment 2 by 2024dc04022@wilp.bits-pilani.ac.in**")
+st.markdown("Upload a test dataset to evaluate your pre-trained models.")
+
+# --- Download Test Data Section ---
+st.sidebar.header("📥 Download Test Data")
+test_data_folder = os.path.join(ROOT, SUBFOLDER, "test_data") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "test_data")
+
+if os.path.exists(test_data_folder):
+    test_files = [f for f in os.listdir(test_data_folder) if os.path.isfile(os.path.join(test_data_folder, f)) and f.endswith('.csv')]
+    if test_files:
+        for file in sorted(test_files):
+            file_path = os.path.join(test_data_folder, file)
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+                st.sidebar.download_button(
+                    label=f"📄 {file}",
+                    data=file_data,
+                    file_name=file,
+                    mime="text/csv",
+                    key=f"download_{file}"
+                )
+    else:
+        st.sidebar.info("No test data files available")
+else:
+    st.sidebar.info("Test data folder not found")
+
+st.sidebar.markdown("---")
 
 # --- 3. Sidebar Configuration ---
 st.sidebar.header("1. Upload Data")
