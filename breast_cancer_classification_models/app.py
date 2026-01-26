@@ -45,7 +45,7 @@ st.markdown("Upload a test dataset to evaluate your pre-trained models.")
 
 # --- Download Test Data Section ---
 st.sidebar.header("📥 Download Test Data")
-test_data_folder = os.path.join(ROOT, SUBFOLDER, "test_data") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "test_data")
+test_data_folder = os.path.join(ROOT, SUBFOLDER, "data", "test_data") if os.path.exists(os.path.join(ROOT, SUBFOLDER)) else os.path.join(ROOT, "data", "test_data")
 
 if os.path.exists(test_data_folder):
     test_files = [f for f in os.listdir(test_data_folder) if os.path.isfile(os.path.join(test_data_folder, f)) and f.endswith('.csv')]
